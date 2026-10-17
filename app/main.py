@@ -17,10 +17,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
+
+from . import auth
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -36,6 +38,24 @@ STATUS_ALIASES = {
 }
 
 app = FastAPI(title="SAP PO Confirmation Simulator")
+
+# Reachable without a session. The webhook has its own optional token (WEBHOOK_TOKEN).
+PUBLIC_PATHS = {"/login", "/api/login", "/api/webhook", "/favicon.ico"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """Every page and API call needs a valid session cookie, except PUBLIC_PATHS."""
+    path = request.url.path
+    if path in PUBLIC_PATHS:
+        return await call_next(request)
+    user = auth.read_session(request.cookies.get(auth.COOKIE_NAME))
+    if not user:
+        if path.startswith("/api/") or path in ("/docs", "/redoc", "/openapi.json"):
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+        return RedirectResponse("/login", status_code=303)
+    request.state.user = user
+    return await call_next(request)
 
 
 # --------------------------------------------------------------------------
@@ -63,6 +83,11 @@ class SimulateRequest(BaseModel):
 
 class DeleteRequest(BaseModel):
     ids: list[str] = Field(..., min_length=1)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 
 # --------------------------------------------------------------------------
@@ -276,6 +301,39 @@ async def stream():
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+# --------------------------------------------------------------------------
+# Login / logout
+# --------------------------------------------------------------------------
+@app.get("/login")
+async def login_page(request: Request):
+    if auth.read_session(request.cookies.get(auth.COOKIE_NAME)):
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(STATIC_DIR / "login.html")
+
+
+@app.post("/api/login")
+async def login(req: LoginRequest, request: Request, response: Response):
+    email = auth.authenticate(req.email, req.password)
+    if not email:
+        await asyncio.sleep(1)  # slows down password guessing
+        raise HTTPException(401, "Invalid email or password")
+    secure = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    response.set_cookie(auth.COOKIE_NAME, auth.make_session(email), max_age=auth.SESSION_SECONDS,
+                        httponly=True, samesite="lax", secure=secure)
+    return {"ok": True, "email": email}
+
+
+@app.post("/api/logout")
+async def logout(response: Response):
+    response.delete_cookie(auth.COOKIE_NAME)
+    return {"ok": True}
+
+
+@app.get("/api/me")
+async def me(request: Request):
+    return {"email": request.state.user}
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

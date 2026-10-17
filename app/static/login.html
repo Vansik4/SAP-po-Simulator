@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log On - Manage Purchase Order Confirmations</title>
+<style>
+  @font-face { font-family:"72"; font-weight:400; src:url("https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Regular.woff2") format("woff2"); }
+  @font-face { font-family:"72"; font-weight:700; src:url("https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Bold.woff2") format("woff2"); }
+  :root { --text:#1d2d3e; --label:#556b82; --brand:#0070f2; --neg:#aa0808; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; min-height:100%; font-family:"72",Arial,Helvetica,sans-serif; font-size:14px; color:var(--text); }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 16px;
+         background:linear-gradient(160deg,#eaf3ff 0%,#f5f6f7 45%,#e9eef4 100%); }
+  .card { width:100%; max-width:400px; background:#fff; border-radius:16px; padding:40px 36px 32px;
+          box-shadow:0 0 .125rem rgba(34,53,72,.15), 0 .5rem 1.5rem rgba(34,53,72,.15); }
+  .logo svg { height:38px; width:auto; display:block; }
+  h1 { font-size:24px; font-weight:700; margin:28px 0 4px; }
+  .sub { color:var(--label); margin:0 0 28px; }
+  label { display:block; color:var(--label); margin-bottom:6px; }
+  .input { width:100%; height:40px; border:1px solid #bcc3ca; border-bottom-color:#556b82; border-radius:4px; padding:0 12px;
+           font:inherit; color:var(--text); background:#fff; outline:0; margin-bottom:18px; }
+  .input:hover { border-color:var(--brand); }
+  .input:focus { outline:2px solid var(--brand); outline-offset:-1px; }
+  .input.err { border-color:#e90b0b; background:#fff4f2; }
+  .btn { width:100%; height:40px; border:0; border-radius:8px; background:var(--brand); color:#fff; font:inherit; font-weight:700; cursor:pointer; margin-top:6px; }
+  .btn:hover { background:#0064d9; }
+  .btn[disabled] { opacity:.6; cursor:wait; }
+  .msg { display:none; padding:10px 12px; border-radius:8px; background:#ffeaf4; border:1px solid #e90b0b; color:var(--neg); margin-bottom:18px; font-size:13px; }
+  footer { margin-top:24px; color:var(--label); font-size:12px; text-align:center; }
+</style>
+</head>
+<body>
+  <form class="card" id="form" novalidate>
+    <div class="logo">
+      <svg viewBox="0 0 92 45" aria-label="Logo"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00b8f1"/><stop offset=".22" stop-color="#06a5e5"/><stop offset=".79" stop-color="#1870c5"/><stop offset="1" stop-color="#1d61bc"/></linearGradient></defs><polygon points="0,0 92,0 47,45 0,45" fill="url(#lg)"/><text x="8" y="31" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="22" fill="#fff" letter-spacing="-0.5">SAP</text></svg>
+    </div>
+    <h1>Log On</h1>
+    <p class="sub">Manage Purchase Order Confirmations</p>
+    <div class="msg" id="msg"></div>
+    <label for="email">Email</label>
+    <input class="input" id="email" type="email" autocomplete="username" autofocus>
+    <label for="password">Password</label>
+    <input class="input" id="password" type="password" autocomplete="current-password">
+    <button class="btn" id="submit" type="submit">Log On</button>
+  </form>
+  <footer>Simulated environment for testing purposes</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+$("form").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("email").value.trim(), password = $("password").value;
+  $("msg").style.display = "none";
+  ["email", "password"].forEach(id => $(id).classList.toggle("err", !$(id).value));
+  if (!email || !password) return showError("Enter your email and password.");
+  $("submit").disabled = true; $("submit").textContent = "Logging on…";
+  try {
+    const r = await fetch("/api/login", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ email, password }) });
+    if (r.ok) { location.href = "/"; return; }
+    showError(r.status === 401 ? "Invalid email or password." : "Log on failed. Try again.");
+    $("password").value = ""; $("password").focus();
+  } catch { showError("Cannot reach the server."); }
+  $("submit").disabled = false; $("submit").textContent = "Log On";
+};
+function showError(text) { $("msg").textContent = text; $("msg").style.display = "block"; }
+</script>
+</body>
+</html>

@@ -6,5 +6,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-graceful-shutdown 5
     envVars:
+      - key: SECRET_KEY
+        generateValue: true   # signs login sessions; stable across restarts
       - key: WEBHOOK_TOKEN
         sync: false   # set it in the Render dashboard (optional)

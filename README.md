@@ -19,6 +19,18 @@ uvicorn app.main:app --reload --port 8000 --timeout-graceful-shutdown 2
 `--timeout-graceful-shutdown` matters: without it, `--reload` hangs while a browser tab holds the live (SSE) connection open, and code changes never load.
 Open http://localhost:8000. Interactive API docs: http://localhost:8000/docs
 
+## Login
+Every page and API call requires signing in, except `POST /api/webhook` (protected by the optional `WEBHOOK_TOKEN`).
+- Users are stored in `users.json` as PBKDF2 hashes (safe to commit).
+- Manage them with:
+  ```bash
+  python manage_users.py add someone@artefact.com     # new user or password reset
+  python manage_users.py remove someone@artefact.com
+  python manage_users.py list
+  ```
+  Generated passwords are written to `credentials.local.txt` (git-ignored, never upload it). Commit the updated `users.json` to apply changes.
+- `SECRET_KEY` env var signs session cookies (Render generates it via `render.yaml`). Without it, users are logged out on every restart. Sessions last 12 h.
+
 ## Webhook
 `POST /api/webhook` with JSON:
 

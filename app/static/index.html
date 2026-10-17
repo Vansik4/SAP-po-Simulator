@@ -182,7 +182,11 @@
       <span class="counter" id="counter">0</span>
     </button>
     <button class="icon-btn" title="Help"><svg class="i" viewBox="0 0 16 16" style="width:18px;height:18px"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM8 10.5a.9.9 0 110 1.8.9.9 0 010-1.8zM8 4c1.4 0 2.5.95 2.5 2.2 0 .95-.55 1.45-1.15 1.85-.45.3-.6.45-.6.95v.25h-1.5V9c0-1 .5-1.45 1.1-1.85.4-.27.65-.47.65-.9 0-.45-.4-.75-1-.75-.65 0-1.05.35-1.1.95H5.4C5.5 5 6.5 4 8 4z"/></svg></button>
-    <div class="avatar" title="Test User">TU</div>
+    <button class="avatar" id="avatar" title="User menu" style="border:0;cursor:pointer">··</button>
+  </div>
+  <div class="popover" id="userMenu" style="right:14px;width:280px">
+    <header style="flex-direction:column;gap:2px"><span>Signed in as</span><span class="sub" id="userEmail" style="font-weight:400"></span></header>
+    <ul><li id="signOut">Sign Out</li></ul>
   </div>
   <div class="popover" id="pop">
     <header>Notifications <span class="link" id="popClear">Clear</span></header>
@@ -332,6 +336,7 @@ function toast(text) {
 
 async function api(url, opts = {}) {
   const r = await fetch(url, { headers:{ "Content-Type":"application/json" }, ...opts });
+  if (r.status === 401) { location.href = "/login"; throw new Error("Not authenticated"); }
   const data = await r.json().catch(() => ({}));
   if (!r.ok) { toast(typeof data.detail === "string" ? data.detail : "Request failed"); throw data; }
   return data;
@@ -568,7 +573,20 @@ function renderBell() {
 }
 $("bell").onclick = e => { e.stopPropagation(); const p = $("pop"); p.style.display = p.style.display === "block" ? "none" : "block"; };
 $("popClear").onclick = () => { notifications = []; renderBell(); };
-document.addEventListener("click", e => { if (!$("pop").contains(e.target)) $("pop").style.display = "none"; });
+document.addEventListener("click", e => {
+  if (!$("pop").contains(e.target)) $("pop").style.display = "none";
+  if (!$("userMenu").contains(e.target)) $("userMenu").style.display = "none";
+});
+
+/* ===================== User menu ===================== */
+api("/api/me").then(u => {
+  $("userEmail").textContent = u.email;
+  const name = u.email.split("@")[0].split(/[._-]/).filter(Boolean);
+  $("avatar").textContent = name.slice(0, 2).map(p => p[0].toUpperCase()).join("");
+  $("avatar").title = u.email;
+});
+$("avatar").onclick = e => { e.stopPropagation(); const m = $("userMenu"); m.style.display = m.style.display === "block" ? "none" : "block"; };
+$("signOut").onclick = async () => { await fetch("/api/logout", { method:"POST" }); location.href = "/login"; };
 
 /* ===================== Real-time (SSE) ===================== */
 async function load() { messages = await api("/api/messages"); route(); }
@@ -576,7 +594,10 @@ function connect() {
   const es = new EventSource("/api/stream");
   const live = $("live");
   es.onopen = () => { live.className = "live on"; live.lastElementChild.textContent = "Live"; load(); };
-  es.onerror = () => { live.className = "live"; live.lastElementChild.textContent = "Reconnecting…"; };
+  es.onerror = () => {
+    live.className = "live"; live.lastElementChild.textContent = "Reconnecting…";
+    api("/api/me").catch(() => {});  // redirects to /login if the session expired
+  };
   es.onmessage = e => {
     const ev = JSON.parse(e.data);
     if (ev.type === "new_message") {

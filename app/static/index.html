@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manage Purchase Order Confirmations</title>
+<style>
+  /* SAP "72" font from the public UI5 CDN, with system fallbacks */
+  @font-face { font-family:"72"; font-weight:400; src:url("https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Regular.woff2") format("woff2"); }
+  @font-face { font-family:"72"; font-weight:700; src:url("https://ui5.sap.com/resources/sap/ui/core/themes/sap_horizon/fonts/72-Bold.woff2") format("woff2"); }
+
+  /* SAP Horizon theme tokens */
+  :root {
+    --bg:#f5f6f7; --surface:#fff; --text:#1d2d3e; --label:#556b82; --border:#d9d9d9; --border-soft:#e5e5e5;
+    --brand:#0070f2; --link:#0064d9; --hover:#eaecee; --selected:#ebf8ff;
+    --pos:#256f3a; --pos-bg:#f5fae5; --crit:#e76500; --crit-bg:#fff8d6; --info:#0070f2; --info-bg:#e1f4ff; --neg:#aa0808;
+    --shadow:0 0 0.125rem rgba(34,53,72,.15), 0 0.125rem 0.5rem rgba(34,53,72,.15);
+    --radius:12px;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:"72","72full",Arial,Helvetica,sans-serif; font-size:14px; }
+  button { font-family:inherit; }
+  svg.i { width:16px; height:16px; fill:currentColor; flex:none; }
+
+  /* ---------- Shell bar ---------- */
+  .shell { height:52px; background:var(--surface); display:flex; align-items:center; padding:0 14px; gap:12px; box-shadow:0 0 .125rem rgba(34,53,72,.15),0 .125rem .25rem rgba(34,53,72,.15); position:sticky; top:0; z-index:20; }
+  .logo { display:flex; align-items:center; }
+  .logo svg { height:30px; width:auto; }
+  .app-title { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:8px; cursor:default; }
+  .app-title:hover { background:var(--hover); }
+  .shell-search { margin:0 auto; width:min(420px,40vw); height:36px; display:flex; align-items:center; gap:8px; padding:0 12px; border-radius:18px; background:#eff1f2; color:var(--label); }
+  .shell-search input { border:0; background:transparent; outline:0; font:inherit; color:var(--text); width:100%; }
+  .shell-actions { display:flex; align-items:center; gap:4px; }
+  .icon-btn { width:36px; height:36px; border:0; border-radius:8px; background:transparent; color:var(--text); display:grid; place-items:center; cursor:pointer; position:relative; }
+  .icon-btn:hover { background:var(--hover); }
+  .counter { position:absolute; top:2px; right:2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--neg); color:#fff; font-size:10px; font-weight:700; display:none; align-items:center; justify-content:center; }
+  .avatar { width:32px; height:32px; border-radius:50%; background:#5d36ff; color:#fff; font-size:13px; font-weight:700; display:grid; place-items:center; margin-left:6px; }
+  .live { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--label); padding:0 8px; }
+  .live i { width:8px; height:8px; border-radius:50%; background:var(--crit); }
+  .live.on i { background:#30914c; box-shadow:0 0 0 3px rgba(48,145,76,.18); }
+
+  /* ---------- Dynamic page header ---------- */
+  .page-head { background:var(--surface); padding:12px 32px 0; box-shadow:0 .125rem .25rem rgba(34,53,72,.08); }
+  .crumbs { font-size:14px; color:var(--label); margin-bottom:6px; }
+  .crumbs a { color:var(--link); text-decoration:none; cursor:pointer; }
+  .crumbs a:hover { text-decoration:underline; }
+  .title-row { display:flex; align-items:center; gap:12px; min-height:40px; }
+  .title-row h1 { font-size:20px; font-weight:700; margin:0; }
+  .variant { display:flex; align-items:center; gap:4px; color:var(--text); font-size:20px; font-weight:700; cursor:pointer; }
+  .variant small { font-size:14px; font-weight:400; color:var(--label); margin-left:6px; }
+  .title-actions { margin-left:auto; display:flex; gap:8px; }
+  .filterbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; padding:14px 0 16px; }
+  .field label { display:block; font-size:14px; color:var(--label); margin-bottom:4px; }
+  .input { height:36px; min-width:200px; border:1px solid #bcc3ca; border-bottom-color:#556b82; border-radius:4px; background:#fff; font:inherit; color:var(--text); padding:0 10px; outline:0; }
+  .input:hover { border-color:var(--brand); background:#fff; }
+  .input:focus { outline:2px solid var(--brand); outline-offset:-1px; }
+  .search-in { display:flex; align-items:center; }
+  .search-in .input { border-right:0; border-radius:4px 0 0 4px; }
+  .search-in span { height:36px; width:36px; display:grid; place-items:center; border:1px solid #bcc3ca; border-bottom-color:#556b82; border-left:0; border-radius:0 4px 4px 0; color:var(--label); background:#fff; }
+  .fb-actions { margin-left:auto; display:flex; gap:8px; }
+
+  /* ---------- Buttons ---------- */
+  .btn { height:36px; padding:0 12px; border-radius:8px; border:1px solid #bcc3ca; background:#fff; color:var(--link); font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .btn:hover { background:var(--hover); }
+  .btn.emph { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:700; }
+  .btn.emph:hover { background:#0064d9; }
+  .btn.ghost { border-color:transparent; background:transparent; }
+  .btn.ghost:hover { background:var(--hover); }
+  .btn.pos { color:var(--pos); border-color:#30914c; }
+  .btn.neg { color:var(--neg); border-color:#e90b0b; }
+  .btn[disabled] { opacity:.4; pointer-events:none; }
+
+  /* ---------- Content / table ---------- */
+  .content { padding:16px 32px 32px; }
+  .panel { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto; }
+  .toolbar { display:flex; align-items:center; gap:6px; height:52px; padding:0 8px 0 16px; border-bottom:1px solid var(--border-soft); }
+  .toolbar h2 { font-size:16px; font-weight:700; margin:0; }
+  .toolbar .sp { flex:1; }
+  .tsep { width:1px; height:24px; background:var(--border); margin:0 4px; }
+  table.t { width:100%; border-collapse:collapse; }
+  .t th { text-align:left; font-weight:700; font-size:14px; color:var(--label); padding:10px 12px; border-bottom:1px solid var(--border); background:#fff; white-space:nowrap; }
+  .t td { padding:10px 12px; border-bottom:1px solid var(--border-soft); vertical-align:middle; height:48px; }
+  .t tbody tr { cursor:pointer; }
+  .t tbody tr:hover { background:var(--hover); }
+  .t td.hl { width:6px; padding:0; }
+  .t td.hl b { display:block; width:6px; height:48px; }
+  .t td.nav { width:40px; color:var(--label); text-align:center; }
+  .t td.num, .t th.num { text-align:right; }
+  .t tr.new { animation:newrow 2.4s ease-out; }
+  @keyframes newrow { 0% { background:#d1efff; } 100% { background:transparent; } }
+  .cb { width:44px; text-align:center; }
+  .cb input { width:18px; height:18px; margin:0; accent-color:var(--brand); cursor:pointer; vertical-align:middle; }
+  .t tbody tr.sel { background:var(--selected); }
+  .t tbody tr.sel:hover { background:#d1efff; }
+  .btn.ghost.neg { border-color:transparent; }
+  .dialog.warn header { display:flex; align-items:center; gap:8px; border-top:4px solid var(--crit); }
+  .dialog.warn header svg { color:var(--crit); width:18px; height:18px; }
+  .obj-id { font-weight:700; color:var(--text); }
+  .sub { color:var(--label); font-size:13px; margin-top:2px; }
+  .status { display:inline-flex; align-items:center; gap:6px; font-weight:400; }
+  .status.Confirmed { color:var(--pos); } .status.Pending { color:var(--crit); } .status.Created { color:var(--info); }
+  .status.inv { padding:2px 8px; border-radius:4px; font-size:12px; font-weight:700; color:#fff; }
+  .status.inv.Confirmed { background:#30914c; } .status.inv.Pending { background:var(--crit); } .status.inv.Created { background:var(--info); }
+  .hl-Confirmed { background:#30914c; } .hl-Pending { background:var(--crit); } .hl-Created { background:var(--info); }
+  .nodata { padding:48px 16px; text-align:center; color:var(--label); }
+  .nodata svg { width:64px; height:64px; fill:#a9b4be; display:block; margin:0 auto 12px; }
+  .tfoot { padding:10px 16px; color:var(--label); font-size:13px; }
+
+  /* ---------- Object page ---------- */
+  .op-head { background:var(--surface); padding:12px 32px 0; box-shadow:0 .125rem .25rem rgba(34,53,72,.08); }
+  .op-title { display:flex; flex-wrap:wrap; align-items:center; gap:16px; min-height:44px; }
+  .title-actions { flex-wrap:wrap; }
+  .op-title h1 { margin:0; font-size:20px; font-weight:700; }
+  .op-subtitle { color:var(--label); margin-top:2px; }
+  .op-kpis { display:flex; flex-wrap:wrap; gap:48px; padding:18px 0 18px; }
+  .kpi .k { color:var(--label); font-size:14px; margin-bottom:4px; }
+  .kpi .v { font-size:14px; }
+  .kpi .v.big { font-size:24px; font-weight:400; color:var(--text); }
+  .kpi .v.big small { font-size:14px; color:var(--label); margin-left:4px; }
+  .anchorbar { display:flex; gap:24px; border-top:1px solid var(--border-soft); }
+  .anchorbar a { padding:14px 0 12px; color:var(--label); cursor:pointer; border-bottom:3px solid transparent; font-weight:400; text-decoration:none; }
+  .anchorbar a:hover { color:var(--text); }
+  .anchorbar a.on { color:var(--link); border-bottom-color:var(--link); font-weight:700; }
+  .section { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 24px 24px; margin-bottom:16px; }
+  .section h3 { font-size:16px; margin:0 0 16px; font-weight:700; }
+  .form { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px 32px; }
+  .form .k { color:var(--label); margin-bottom:4px; }
+  .form .v { word-break:break-word; }
+  .grp-title { font-weight:700; margin:20px 0 12px; font-size:14px; }
+  .mail { border:1px solid var(--border-soft); border-radius:8px; overflow:hidden; }
+  .mail-h { padding:14px 16px; background:#fafbfc; border-bottom:1px solid var(--border-soft); display:grid; grid-template-columns:80px 1fr; gap:6px 12px; }
+  .mail-h .k { color:var(--label); }
+  .mail-b { padding:16px; white-space:pre-wrap; font-family:"72",Arial,sans-serif; line-height:1.5; margin:0; }
+  .timeline { list-style:none; margin:0; padding:0; }
+  .timeline li { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-soft); align-items:flex-start; }
+  .timeline li:last-child { border-bottom:0; }
+  .dot { width:12px; height:12px; border-radius:50%; margin-top:4px; flex:none; }
+  .link { color:var(--link); cursor:pointer; }
+  .link:hover { text-decoration:underline; }
+
+  /* ---------- Dialog, popover, toast ---------- */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:50; }
+  .dialog { background:#fff; border-radius:12px; width:min(520px,94vw); box-shadow:0 0 1rem rgba(0,0,0,.3); overflow:hidden; }
+  .dialog header { padding:14px 16px; font-weight:700; font-size:16px; border-bottom:1px solid var(--border-soft); }
+  .dialog .body { padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .dialog footer { padding:10px 16px; border-top:1px solid var(--border-soft); display:flex; justify-content:flex-end; gap:8px; background:#fff; }
+  .msgstrip { padding:10px 12px; border-radius:8px; background:var(--info-bg); border:1px solid #0070f2; font-size:13px; }
+  .msgstrip code { background:rgba(255,255,255,.7); padding:1px 5px; border-radius:4px; }
+  .popover { position:absolute; top:48px; right:60px; width:360px; background:#fff; border-radius:12px; box-shadow:0 0 1rem rgba(34,53,72,.25); display:none; z-index:40; overflow:hidden; }
+  .popover header { padding:12px 16px; font-weight:700; border-bottom:1px solid var(--border-soft); display:flex; justify-content:space-between; }
+  .popover ul { list-style:none; margin:0; padding:0; max-height:360px; overflow:auto; }
+  .popover li { padding:10px 16px; border-bottom:1px solid var(--border-soft); cursor:pointer; }
+  .popover li:hover { background:var(--hover); }
+  .toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); background:rgba(29,45,62,.95); color:#fff; padding:12px 18px; border-radius:8px; font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:60; }
+  .toast.show { opacity:1; }
+
+  @media (max-width:760px) {
+    .page-head, .op-head, .content { padding-left:16px; padding-right:16px; }
+    .shell-search, .live span, .app-title span.long { display:none; }
+    .t .hide-sm { display:none; }
+    .fb-actions { margin-left:0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== SHELL BAR ===================== -->
+<div class="shell">
+  <div class="logo" title="Home">
+    <svg viewBox="0 0 92 45" aria-label="Logo"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00b8f1"/><stop offset=".22" stop-color="#06a5e5"/><stop offset=".79" stop-color="#1870c5"/><stop offset="1" stop-color="#1d61bc"/></linearGradient></defs><polygon points="0,0 92,0 47,45 0,45" fill="url(#lg)"/><text x="8" y="31" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="22" fill="#fff" letter-spacing="-0.5">SAP</text></svg>
+  </div>
+  <div class="app-title"><span class="long">Manage Purchase Order Confirmations</span>
+    <svg class="i" viewBox="0 0 16 16"><path d="M3.5 6l4.5 4.5L12.5 6z"/></svg></div>
+  <div class="shell-search">
+    <svg class="i" viewBox="0 0 16 16"><path d="M6.5 1a5.5 5.5 0 014.38 8.83l3.65 3.64-1.06 1.06-3.64-3.65A5.5 5.5 0 116.5 1zm0 1.5a4 4 0 100 8 4 4 0 000-8z"/></svg>
+    <input id="globalSearch" placeholder="Search in: Purchase Orders">
+  </div>
+  <div class="shell-actions">
+    <div class="live" id="live"><i></i><span>Offline</span></div>
+    <button class="icon-btn" id="bell" title="Notifications">
+      <svg class="i" viewBox="0 0 16 16" style="width:18px;height:18px"><path d="M8 1a4.5 4.5 0 014.5 4.5V9l1.5 2.5v1H2v-1L3.5 9V5.5A4.5 4.5 0 018 1zm-1.75 12.5h3.5a1.75 1.75 0 01-3.5 0z"/></svg>
+      <span class="counter" id="counter">0</span>
+    </button>
+    <button class="icon-btn" title="Help"><svg class="i" viewBox="0 0 16 16" style="width:18px;height:18px"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM8 10.5a.9.9 0 110 1.8.9.9 0 010-1.8zM8 4c1.4 0 2.5.95 2.5 2.2 0 .95-.55 1.45-1.15 1.85-.45.3-.6.45-.6.95v.25h-1.5V9c0-1 .5-1.45 1.1-1.85.4-.27.65-.47.65-.9 0-.45-.4-.75-1-.75-.65 0-1.05.35-1.1.95H5.4C5.5 5 6.5 4 8 4z"/></svg></button>
+    <div class="avatar" title="Test User">TU</div>
+  </div>
+  <div class="popover" id="pop">
+    <header>Notifications <span class="link" id="popClear">Clear</span></header>
+    <ul id="popList"></ul>
+  </div>
+</div>
+
+<!-- ===================== LIST REPORT ===================== -->
+<div id="listView">
+  <div class="page-head">
+    <div class="title-row">
+      <div class="variant">Standard <svg class="i" viewBox="0 0 16 16"><path d="M3.5 6l4.5 4.5L12.5 6z"/></svg><small id="variantInfo"></small></div>
+      <div class="title-actions">
+        <button class="btn ghost" id="openTest"><svg class="i" viewBox="0 0 16 16"><path d="M6 1h4v1.5H9.5v3.3l4.2 7A1.5 1.5 0 0112.4 15H3.6a1.5 1.5 0 01-1.3-2.2l4.2-7V2.5H6zm2 1.5v3.7L6.4 9h3.2L8 6.2z" transform="translate(0 0)"/></svg>Test Controls</button>
+      </div>
+    </div>
+    <div class="filterbar">
+      <div class="field"><label>Search</label>
+        <div class="search-in"><input class="input" id="fSearch" placeholder="Search"><span><svg class="i" viewBox="0 0 16 16"><path d="M6.5 1a5.5 5.5 0 014.38 8.83l3.65 3.64-1.06 1.06-3.64-3.65A5.5 5.5 0 116.5 1zm0 1.5a4 4 0 100 8 4 4 0 000-8z"/></svg></span></div></div>
+      <div class="field"><label>Purchase Order</label><input class="input" id="fPo" placeholder=""></div>
+      <div class="field"><label>Supplier</label><input class="input" id="fVendor"></div>
+      <div class="field"><label>Confirmation Status</label>
+        <select class="input" id="fStatus"><option value="">All</option><option>Created</option><option>Confirmed</option><option>Pending</option></select></div>
+      <div class="field"><label>Source</label>
+        <select class="input" id="fSource"><option value="">All</option><option>Webhook</option><option>Simulator</option></select></div>
+      <div class="fb-actions">
+        <button class="btn emph" id="go">Go</button>
+        <button class="btn ghost" id="resetF">Reset Filters</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="panel">
+      <div class="toolbar">
+        <h2 id="tableTitle">Order Confirmations (0)</h2>
+        <div class="sp"></div>
+        <button class="btn ghost" id="tbCreate">Create Test PO</button>
+        <button class="btn ghost neg" id="tbDelete" disabled>Delete</button>
+        <button class="btn ghost neg" id="tbClear">Delete All</button>
+        <div class="tsep"></div>
+        <button class="icon-btn" title="Sort"><svg class="i" viewBox="0 0 16 16"><path d="M4 1l3 3.5H5V15H3V4.5H1zm8 14l-3-3.5h2V1h2v10.5h2z"/></svg></button>
+        <button class="icon-btn" title="Settings"><svg class="i" viewBox="0 0 16 16"><path d="M7 1h2l.4 1.9 1.3.6 1.7-1 1.4 1.4-1 1.7.5 1.3L15 7v2l-1.9.4-.5 1.3 1 1.7-1.4 1.4-1.7-1-1.3.5L9 15H7l-.4-1.9-1.3-.5-1.7 1-1.4-1.4 1-1.7-.5-1.3L1 9V7l1.9-.4.5-1.3-1-1.7 1.4-1.4 1.7 1 1.3-.6zm1 4.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z"/></svg></button>
+      </div>
+      <table class="t">
+        <thead><tr>
+          <th class="cb"><input type="checkbox" id="selAll" title="Select all"></th>
+          <th>Purchase Order</th><th>Supplier</th><th class="hide-sm">Customer</th>
+          <th>Confirmation Status</th><th class="hide-sm">Source</th><th>Created On</th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="nodata" id="nodata">
+        <svg viewBox="0 0 64 64"><path d="M8 14h48v36H8zm4 4v2l20 13 20-13v-2zm0 6.6V46h40V24.6L32 37.4z"/></svg>
+        <div style="font-size:16px;color:var(--text);margin-bottom:4px">No data</div>
+        <div>Send a POST request to <b>/api/webhook</b> or use Test Controls.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== OBJECT PAGE ===================== -->
+<div id="objView" style="display:none">
+  <div class="op-head">
+    <div class="crumbs"><a id="back">Manage Purchase Order Confirmations</a> /</div>
+    <div class="op-title">
+      <div>
+        <h1 id="opTitle"></h1>
+        <div class="op-subtitle" id="opSub"></div>
+      </div>
+      <div class="title-actions">
+        <button class="btn emph" id="opConfirm">Simulate Supplier Confirmation</button>
+        <button class="btn" id="opPending">Set to Pending</button>
+        <button class="btn neg" id="opDelete">Delete</button>
+        <button class="btn ghost" id="opClose" title="Close">
+          <svg class="i" viewBox="0 0 16 16"><path d="M3.3 2.2L8 6.9l4.7-4.7 1.1 1.1L9.1 8l4.7 4.7-1.1 1.1L8 9.1l-4.7 4.7-1.1-1.1L6.9 8 2.2 3.3z"/></svg></button>
+      </div>
+    </div>
+    <div class="op-kpis" id="opKpis"></div>
+    <div class="anchorbar" id="anchors">
+      <a data-tab="general" class="on">General Information</a>
+      <a data-tab="items">Items</a>
+      <a data-tab="email">Confirmation Email</a>
+      <a data-tab="history">Status History</a>
+    </div>
+  </div>
+  <div class="content" id="opBody"></div>
+</div>
+
+<!-- ===================== TEST CONTROLS DIALOG ===================== -->
+<div class="scrim" id="scrim">
+  <div class="dialog">
+    <header>Test Controls</header>
+    <div class="body">
+      <div class="msgstrip">Webhook endpoint: <code id="whUrl"></code> &nbsp;(POST, JSON)</div>
+      <div><button class="btn emph" id="dCreate">Create Sample Purchase Order</button></div>
+      <div class="field"><label>Purchase Order</label><select class="input" id="dPo" style="width:100%"></select></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn pos" id="dConfirm">Supplier Confirms PO</button>
+        <button class="btn" id="dPending">Set to Pending</button>
+      </div>
+    </div>
+    <footer><button class="btn" id="dClose">Close</button></footer>
+  </div>
+</div>
+
+<!-- ===================== CONFIRMATION DIALOG ===================== -->
+<div class="scrim" id="confirmScrim">
+  <div class="dialog warn">
+    <header><svg class="i" viewBox="0 0 16 16"><path d="M8 1l7.5 13h-15zm-.75 4.5v4.5h1.5V5.5zm.75 5.5a.9.9 0 100 1.8.9.9 0 000-1.8z"/></svg>Delete</header>
+    <div class="body" id="confirmText"></div>
+    <footer><button class="btn emph" id="confirmOk">Delete</button><button class="btn" id="confirmCancel">Cancel</button></footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== State ===================== */
+const $ = id => document.getElementById(id);
+let messages = [];          // inbox summaries, newest first
+let notifications = [];     // unread items for the bell
+let newIds = new Set();     // rows to flash
+let selection = new Set();  // checked rows
+let current = null;         // message open in object page
+let currentTab = "general";
+const filters = { q:"", po:"", vendor:"", status:"", source:"" };
+
+/* ===================== Helpers ===================== */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dt = iso => new Date(iso).toLocaleString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit", second:"2-digit" });
+const money = (v, cur) => typeof v === "number" ? v.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }) + (cur ? " " + cur : "") : esc(v);
+const label = k => k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+const ICONS = {
+  Confirmed: '<svg class="i" viewBox="0 0 16 16"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm3.2 4.2L7 9.4 4.8 7.2 3.7 8.3 7 11.6l5.3-5.3z"/></svg>',
+  Pending:   '<svg class="i" viewBox="0 0 16 16"><path d="M8 1l7.5 13h-15zm-.75 4.5v4.5h1.5V5.5zm.75 5.5a.9.9 0 100 1.8.9.9 0 000-1.8z"/></svg>',
+  Created:   '<svg class="i" viewBox="0 0 16 16"><path d="M8 1a7 7 0 110 14A7 7 0 018 1zm-.75 6v5h1.5V7zM8 4a.9.9 0 100 1.8A.9.9 0 008 4z"/></svg>',
+};
+const status = (s, inv) => `<span class="status ${inv ? "inv " : ""}${esc(s)}">${inv ? "" : (ICONS[s] || "")}${esc(s)}</span>`;
+const CHEVRON = '<svg class="i" viewBox="0 0 16 16"><path d="M6 3.5l4.5 4.5L6 12.5 5 11.4 8.4 8 5 4.6z"/></svg>';
+
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+async function api(url, opts = {}) {
+  const r = await fetch(url, { headers:{ "Content-Type":"application/json" }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(typeof data.detail === "string" ? data.detail : "Request failed"); throw data; }
+  return data;
+}
+
+/* ===================== List report ===================== */
+function filtered() {
+  const q = filters.q.toLowerCase();
+  return messages.filter(m =>
+    (!q || [m.po_number, m.vendor, m.client, m.status, m.subject].join(" ").toLowerCase().includes(q)) &&
+    (!filters.po || m.po_number.includes(filters.po)) &&
+    (!filters.vendor || m.vendor.toLowerCase().includes(filters.vendor.toLowerCase())) &&
+    (!filters.status || m.status === filters.status) &&
+    (!filters.source || m.source === filters.source));
+}
+
+function renderList() {
+  const list = filtered();
+  $("tableTitle").textContent = `Order Confirmations (${list.length})`;
+  const active = Object.values(filters).filter(Boolean).length;
+  $("variantInfo").textContent = active ? `(${active} filter${active > 1 ? "s" : ""} active)` : "";
+  $("nodata").style.display = list.length ? "none" : "block";
+  $("rows").innerHTML = list.map(m => `
+    <tr data-id="${m.id}" class="${newIds.has(m.id) ? "new" : ""} ${selection.has(m.id) ? "sel" : ""}">
+      <td class="cb"><input type="checkbox" data-sel="${m.id}" ${selection.has(m.id) ? "checked" : ""}></td>
+      <td><div class="obj-id">${esc(m.po_number)}</div><div class="sub">${esc(m.subject)}</div></td>
+      <td>${esc(m.vendor)}</td>
+      <td class="hide-sm">${esc(m.client)}</td>
+      <td>${status(m.status)}</td>
+      <td class="hide-sm">${esc(m.source)}</td>
+      <td>${dt(m.created_at)}</td>
+      <td class="nav">${CHEVRON}</td>
+    </tr>`).join("");
+  newIds.clear();
+  document.querySelectorAll("#rows tr").forEach(tr => tr.onclick = () => location.hash = "#/po/" + tr.dataset.id);
+  document.querySelectorAll("#rows td.cb").forEach(td => td.onclick = e => e.stopPropagation());
+  document.querySelectorAll("#rows input[data-sel]").forEach(cb => cb.onchange = () => {
+    cb.checked ? selection.add(cb.dataset.sel) : selection.delete(cb.dataset.sel);
+    cb.closest("tr").classList.toggle("sel", cb.checked);
+    updateSelectionUi();
+  });
+  updateSelectionUi();
+  refreshPoSelect();
+}
+
+/* ===================== Selection & delete ===================== */
+function updateSelectionUi() {
+  const visible = filtered().map(m => m.id);
+  const checked = visible.filter(id => selection.has(id)).length;
+  $("selAll").checked = visible.length > 0 && checked === visible.length;
+  $("selAll").indeterminate = checked > 0 && checked < visible.length;
+  $("tbDelete").disabled = selection.size === 0;
+  $("tbDelete").textContent = selection.size ? `Delete (${selection.size})` : "Delete";
+  $("tbClear").disabled = messages.length === 0;
+}
+$("selAll").onchange = e => {
+  filtered().forEach(m => e.target.checked ? selection.add(m.id) : selection.delete(m.id));
+  renderList();
+};
+
+// In-page confirmation (browser confirm() popups can be blocked in embedded browsers)
+function confirmDialog(text) {
+  return new Promise(resolve => {
+    $("confirmText").textContent = text;
+    $("confirmScrim").style.display = "flex";
+    const done = ok => { $("confirmScrim").style.display = "none"; resolve(ok); };
+    $("confirmOk").onclick = () => done(true);
+    $("confirmCancel").onclick = () => done(false);
+  });
+}
+
+async function deleteIds(ids) {
+  const n = ids.length;
+  if (!n || !await confirmDialog(`Delete ${n} message${n > 1 ? "s" : ""}? This cannot be undone.`)) return false;
+  await api("/api/messages/delete", { method:"POST", body:JSON.stringify({ ids }) });
+  return true;
+}
+
+$("tbDelete").onclick = () => deleteIds([...selection]);
+$("tbClear").onclick = async () => {
+  if (await confirmDialog(`Delete all ${messages.length} messages from the inbox? This cannot be undone.`))
+    api("/api/messages", { method:"DELETE" });
+};
+
+function removeLocal(ids) {
+  const gone = new Set(ids);
+  messages = messages.filter(m => !gone.has(m.id));
+  notifications = notifications.filter(n => !gone.has(n.id));
+  ids.forEach(id => selection.delete(id));
+  renderBell();
+}
+
+function refreshPoSelect() {
+  const sel = $("dPo"), prev = sel.value;
+  const pos = [...new Set(messages.map(m => m.po_number))];
+  sel.innerHTML = pos.length ? pos.map(p => `<option>${esc(p)}</option>`).join("") : "<option value=''>No purchase orders</option>";
+  if (pos.includes(prev)) sel.value = prev;
+}
+
+function applyFilters() {
+  filters.q = $("fSearch").value.trim();
+  filters.po = $("fPo").value.trim();
+  filters.vendor = $("fVendor").value.trim();
+  filters.status = $("fStatus").value;
+  filters.source = $("fSource").value;
+  renderList();
+}
+$("go").onclick = applyFilters;
+["fSearch","fPo","fVendor"].forEach(id => $(id).addEventListener("keydown", e => e.key === "Enter" && applyFilters()));
+$("resetF").onclick = () => { ["fSearch","fPo","fVendor","fStatus","fSource"].forEach(id => $(id).value = ""); applyFilters(); };
+$("globalSearch").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  $("fSearch").value = e.target.value; location.hash = "#/"; applyFilters();
+});
+
+/* ===================== Object page ===================== */
+async function openObject(id) {
+  try { current = await api(`/api/messages/${id}`); }
+  catch { location.hash = "#/"; return; }
+  const m = current, d = (m.order_details && typeof m.order_details === "object") ? m.order_details : {};
+  $("opTitle").innerHTML = `Purchase Order ${esc(m.po_number)}`;
+  $("opSub").textContent = m.subject;
+  const kpis = [
+    ["Supplier", esc(m.vendor)],
+    ["Confirmation Status", status(m.status, true)],
+    ["Net Value", d.total != null ? `<span class="v big">${money(d.total)}<small>${esc(d.currency || "")}</small></span>` : "—"],
+    ["Delivery Date", esc(d.delivery_date || "—")],
+    ["Received On", dt(m.created_at)],
+  ];
+  $("opKpis").innerHTML = kpis.map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  renderTab();
+}
+
+function renderTab() {
+  const m = current; if (!m) return;
+  document.querySelectorAll("#anchors a").forEach(a => a.classList.toggle("on", a.dataset.tab === currentTab));
+  const d = m.order_details;
+  const obj = (d && typeof d === "object" && !Array.isArray(d)) ? d : null;
+  let html = "";
+
+  if (currentTab === "general") {
+    const basic = [["Purchase Order", m.po_number], ["Supplier", m.vendor], ["Customer", m.client],
+                   ["Confirmation Status", status(m.status)], ["Source", m.source], ["Received On", dt(m.created_at)], ["Message ID", m.id]];
+    const extra = obj ? Object.entries(obj).filter(([k, v]) => k !== "items" && (v === null || typeof v !== "object")) : [];
+    html = `<div class="section"><h3>General Information</h3>
+      <div class="grp-title" style="margin-top:0">Basic Data</div>
+      <div class="form">${basic.map(([k, v]) => `<div><div class="k">${k}:</div><div class="v">${k === "Confirmation Status" ? v : esc(v)}</div></div>`).join("")}</div>
+      ${extra.length ? `<div class="grp-title">Order Data</div><div class="form">${extra.map(([k, v]) =>
+        `<div><div class="k">${esc(label(k))}:</div><div class="v">${k === "total" ? money(v, obj.currency) : esc(v)}</div></div>`).join("")}</div>` : ""}
+      ${!obj ? `<div class="grp-title">Order Details</div><div class="v" style="white-space:pre-wrap">${esc(typeof d === "string" ? d : JSON.stringify(d, null, 2))}</div>` : ""}
+    </div>`;
+  }
+
+  if (currentTab === "items") {
+    const items = obj && Array.isArray(obj.items) ? obj.items.filter(i => i && typeof i === "object") : [];
+    if (!items.length) html = `<div class="section"><h3>Items (0)</h3><div class="nodata">No items in the order details.</div></div>`;
+    else {
+      const cols = [...new Set(items.flatMap(Object.keys))];
+      const isNum = c => items.every(i => i[c] == null || typeof i[c] === "number");
+      html = `<div class="panel"><div class="toolbar"><h2>Items (${items.length})</h2></div>
+        <table class="t"><thead><tr>${cols.map(c => `<th class="${isNum(c) ? "num" : ""}">${esc(label(c))}</th>`).join("")}</tr></thead>
+        <tbody>${items.map(i => `<tr style="cursor:default">${cols.map(c => `<td class="${isNum(c) ? "num" : ""}">${
+          /price|value|total/.test(c) && typeof i[c] === "number" ? money(i[c]) : esc(i[c] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    }
+  }
+
+  if (currentTab === "email") {
+    html = `<div class="section"><h3>Confirmation Email</h3><div class="mail">
+      <div class="mail-h">
+        <span class="k">From:</span><span>${esc(m.vendor)}</span>
+        <span class="k">To:</span><span>${esc(m.client)}</span>
+        <span class="k">Subject:</span><span><b>${esc(m.subject)}</b></span>
+        <span class="k">Date:</span><span>${dt(m.created_at)}</span>
+        <span class="k">Status:</span><span>${status(m.status)}</span>
+      </div>
+      <pre class="mail-b">${esc(m.body)}</pre></div></div>`;
+  }
+
+  if (currentTab === "history") {
+    const hist = messages.filter(x => x.po_number === m.po_number);
+    const color = { Confirmed:"#30914c", Pending:"#e76500", Created:"#0070f2" };
+    html = `<div class="section"><h3>Status History (${hist.length})</h3><ul class="timeline">${hist.map(h => `
+      <li><span class="dot" style="background:${color[h.status] || "#556b82"}"></span>
+        <div style="flex:1"><div>${status(h.status)} <span class="sub">via ${esc(h.source)}</span></div>
+        <div class="sub">${dt(h.created_at)}</div></div>
+        ${h.id === m.id ? '<span class="sub">Current</span>' : `<span class="link" data-id="${h.id}">Open</span>`}</li>`).join("")}</ul></div>`;
+  }
+
+  $("opBody").innerHTML = html;
+  $("opBody").querySelectorAll(".link[data-id]").forEach(a => a.onclick = () => location.hash = "#/po/" + a.dataset.id);
+}
+
+document.querySelectorAll("#anchors a").forEach(a => a.onclick = () => { currentTab = a.dataset.tab; renderTab(); });
+$("back").onclick = $("opClose").onclick = () => location.hash = "#/";
+
+async function simulate(action, po) {
+  if (!po) return toast("Select a purchase order first");
+  const r = await api("/api/simulate", { method:"POST", body:JSON.stringify({ action, po_number: po }) });
+  return r;
+}
+$("opConfirm").onclick = async () => { const r = await simulate("vendor_confirms", current.po_number); if (r) location.hash = "#/po/" + r.id; };
+$("opPending").onclick = async () => { const r = await simulate("vendor_pending", current.po_number); if (r) location.hash = "#/po/" + r.id; };
+
+/* ===================== Routing ===================== */
+function route() {
+  const m = location.hash.match(/^#\/po\/(\w+)/);
+  $("listView").style.display = m ? "none" : "block";
+  $("objView").style.display = m ? "block" : "none";
+  if (m) { currentTab = current && current.id === m[1] ? currentTab : "general"; openObject(m[1]); window.scrollTo(0, 0); }
+  else { current = null; renderList(); }
+}
+window.addEventListener("hashchange", route);
+
+/* ===================== Test controls dialog ===================== */
+$("whUrl").textContent = location.origin + "/api/webhook";
+$("openTest").onclick = () => { refreshPoSelect(); $("scrim").style.display = "flex"; };
+$("dClose").onclick = () => $("scrim").style.display = "none";
+$("scrim").onclick = e => { if (e.target === $("scrim")) $("scrim").style.display = "none"; };
+const createSample = () => api("/api/simulate", { method:"POST", body:JSON.stringify({ action:"create_sample" }) });
+$("dCreate").onclick = createSample;
+$("tbCreate").onclick = createSample;
+$("dConfirm").onclick = () => simulate("vendor_confirms", $("dPo").value);
+$("dPending").onclick = () => simulate("vendor_pending", $("dPo").value);
+$("opDelete").onclick = async () => { if (await deleteIds([current.id])) location.hash = "#/"; };
+
+/* ===================== Notifications ===================== */
+function renderBell() {
+  const c = $("counter");
+  c.textContent = notifications.length; c.style.display = notifications.length ? "flex" : "none";
+  $("popList").innerHTML = notifications.length
+    ? notifications.map(n => `<li data-id="${n.id}"><div>${status(n.status)} &nbsp;<b>PO ${esc(n.po_number)}</b></div><div class="sub">${esc(n.vendor)} · ${dt(n.created_at)}</div></li>`).join("")
+    : '<li style="cursor:default;color:var(--label)">No new notifications</li>';
+  $("popList").querySelectorAll("li[data-id]").forEach(li => li.onclick = () => { $("pop").style.display = "none"; location.hash = "#/po/" + li.dataset.id; });
+}
+$("bell").onclick = e => { e.stopPropagation(); const p = $("pop"); p.style.display = p.style.display === "block" ? "none" : "block"; };
+$("popClear").onclick = () => { notifications = []; renderBell(); };
+document.addEventListener("click", e => { if (!$("pop").contains(e.target)) $("pop").style.display = "none"; });
+
+/* ===================== Real-time (SSE) ===================== */
+async function load() { messages = await api("/api/messages"); route(); }
+function connect() {
+  const es = new EventSource("/api/stream");
+  const live = $("live");
+  es.onopen = () => { live.className = "live on"; live.lastElementChild.textContent = "Live"; load(); };
+  es.onerror = () => { live.className = "live"; live.lastElementChild.textContent = "Reconnecting…"; };
+  es.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === "new_message") {
+      const m = ev.message;
+      messages.unshift(m); newIds.add(m.id);
+      notifications.unshift(m); notifications = notifications.slice(0, 20); renderBell();
+      toast(`Purchase Order ${m.po_number}: ${m.status} (${m.source})`);
+      if (current) { if (currentTab === "history" && current.po_number === m.po_number) renderTab(); }
+      else renderList();
+    }
+    if (ev.type === "cleared") { messages = []; notifications = []; selection.clear(); renderBell(); location.hash = "#/"; route(); toast("All messages deleted"); }
+    if (ev.type === "deleted") {
+      removeLocal(ev.ids);
+      toast(`${ev.ids.length} message${ev.ids.length > 1 ? "s" : ""} deleted`);
+      if (current && ev.ids.includes(current.id)) location.hash = "#/";
+      else if (current) { if (currentTab === "history") renderTab(); }
+      else renderList();
+    }
+  };
+}
+renderBell();
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sap-po-simulator
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-graceful-shutdown 5
+    envVars:
+      - key: WEBHOOK_TOKEN
+        sync: false   # set it in the Render dashboard (optional)
